@@ -11,3 +11,7 @@ A simple color picker for Ren'Py.
 3. There is a test label, `label how_to_use_color_picker`, included in `color_picker.rpy`. You can jump to it to test out the color picker (e.g. `jump how_to_use_color_picker`).
 
 In particular, the example screen `screen color_picker` should be used as a guide for adding the picker to your own screens. The picker, hue bars, preview swatch, hex code information, etc. are all separate screen elements and can be resized and moved around the screen however you like. 
+
+## Terms of Use
+
+You are free to use this code however you wish. Credit as `Feniks` is not required but is appreciated if you found the code useful. You can also check out my website, https://feniksdev.com/ for Ren'Py coding tutorials.
