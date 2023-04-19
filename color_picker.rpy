@@ -196,6 +196,10 @@ init python:
         return Transform(picker.color, xysize=(xsize, ysize)), 0.01
 
     def picker_hexcode(st, at, picker):
+        """
+        A brief DynamicDisplayable demonstration of how to display color
+        information in real-time.
+        """
         return Text(picker.color.hexcode), 0.01
 
 ################################################################################
@@ -214,9 +218,12 @@ image selector = Transform("selector_bg", xysize=(15, 15), anchor=(0.5, 0.5))
 screen color_picker():
 
     ## The picker itself. Its size is 700x700 with the starting colour #8b0f55.
+    ## You may declare this outside of the screen to make it easier to access.
     default picker = ColorPicker(700, 700, "#8b0f55")
     ## The preview swatch. Needs to be provided the picker variable from above.
-    default picker_color = DynamicDisplayable(picker_color, picker=picker)
+    ## You can specify its size as well.
+    default picker_color = DynamicDisplayable(picker_color, picker=picker,
+        xsize=100, ysize=100)
     ## The hexcode of the current colour. Demonstrates updating the picker
     ## colour information in real-time.
     default picker_hex = DynamicDisplayable(picker_hexcode, picker=picker)
@@ -246,9 +253,10 @@ screen color_picker():
             vbox:
                 xsize 160
                 add picker_hex ## The DynamicDisplayable from earlier
-                # text "R: [picker.color.rgb[0]:.2f]"
-                # text "G: [picker.color.rgb[1]:.2f]"
-                # text "B: [picker.color.rgb[2]:.2f]"
+                ## These update when the mouse button is released
+                text "R: [picker.color.rgb[0]:.2f]"
+                text "G: [picker.color.rgb[1]:.2f]"
+                text "B: [picker.color.rgb[2]:.2f]"
 
         ## A horizontal bar that lets you change the hue of the picker
         bar value FieldValue(picker, "hue_rotation", 1.0):
@@ -275,6 +283,3 @@ label how_to_use_color_picker():
     $ color_tag = "{color=%s}" % chosen_color
     "[color_tag]You chose the colour [chosen_color].{/color}"
     return
-
-
-
