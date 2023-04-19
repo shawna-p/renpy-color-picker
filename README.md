@@ -15,3 +15,7 @@ In particular, the example screen `screen color_picker` should be used as a guid
 ## Terms of Use
 
 You are free to use this code however you wish. Credit as `Feniks` is not required but is appreciated if you found the code useful. You can also check out my website, https://feniksdev.com/ for Ren'Py coding tutorials.
+
+## Like my work?
+
+[![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/fen)
