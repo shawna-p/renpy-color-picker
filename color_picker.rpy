@@ -200,7 +200,7 @@ init python:
         A brief DynamicDisplayable demonstration of how to display color
         information in real-time.
         """
-        return Text(picker.color.hexcode), 0.01
+        return Fixed(Text(picker.color.hexcode), xysize=(200, 40)), 0.01
 
 ################################################################################
 ## IMAGES
@@ -243,15 +243,15 @@ screen color_picker():
 
             ## The picker itself
             add picker
-            ## The swatch
-            add picker_color
-            ## You can display other information on the color here, as desired
-            ## Some examples are provided. Note that these do not update in
-            ## tandem with the picker, but when the mouse is released. You
-            ## will need to use a DynamicDisplayable for real-time updates.
-            ## The hex code is provided as an example.
             vbox:
-                xsize 160
+                xsize 200 spacing 10
+                ## The swatch
+                add picker_color
+                ## You can display other information on the color here, as desired
+                ## Some examples are provided. Note that these do not update in
+                ## tandem with the picker, but when the mouse is released. You
+                ## will need to use a DynamicDisplayable for real-time updates.
+                ## The hex code is provided as an example.
                 add picker_hex ## The DynamicDisplayable from earlier
                 ## These update when the mouse button is released
                 text "R: [picker.color.rgb[0]:.2f]"
@@ -283,3 +283,4 @@ label how_to_use_color_picker():
     $ color_tag = "{color=%s}" % chosen_color
     "[color_tag]You chose the colour [chosen_color].{/color}"
     return
+
