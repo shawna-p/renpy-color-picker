@@ -121,13 +121,24 @@ init python:
             super(ColorPicker, self).__init__(**kwargs)
             self.xsize = xsize
             self.ysize = ysize
-            self.color = Color(start_color)
 
+            self.set_color(start_color)
+            self.picker = Transform("#fff", xysize=(self.xsize, self.ysize))
+            self.dragging = False
+
+        def set_color(self, color):
+            """
+            Set the current colour of the colour picker.
+
+            Parameters
+            ----------
+            color : Color
+                The new colour to set the colour picker to.
+            """
+            self.color = Color(color)
             self.selector_xpos = self.color.hsv[1]
             self.selector_ypos = 1.0 - self.color.hsv[2]
-            self.picker = Transform("#fff", xysize=(self.xsize, self.ysize))
             self.hue_rotation = self.color.hsv[0]
-            self.dragging = False
 
         def visit(self):
             return [Image("selector")]
@@ -228,6 +239,11 @@ screen color_picker():
     ## colour information in real-time.
     default picker_hex = DynamicDisplayable(picker_hexcode, picker=picker)
 
+    ## This is an example of how you can swap between multiple colour swatches
+    default color1 = "#fff"
+    default color2 = "#fff"
+    default current_color = 1
+
     add "#333"
 
     vbox:
@@ -246,7 +262,34 @@ screen color_picker():
             vbox:
                 xsize 200 spacing 10
                 ## The swatch
+                ## If you only need one swatch, use this:
                 add picker_color
+                ## Otherwise, the following code lets you switch between
+                ## two different swatches to choose more than one colour.
+                # if current_color == 1:
+                #     button:
+                #         padding (4, 4) background "#fff"
+                #         add picker_color
+                # else:
+                #     imagebutton:
+                #         xysize (100, 100) padding (4, 4)
+                #         idle color1 hover_foreground "#fff2"
+                #         action [SetScreenVariable("color2", picker.color),
+                #             Function(picker.set_color, color1),
+                #             SetScreenVariable("current_color", 1)]
+                # if current_color == 2:
+                #     button:
+                #         padding (4, 4) background "#fff"
+                #         add picker_color
+                # else:
+                #     imagebutton:
+                #         xysize (100, 100) padding (4, 4)
+                #         idle color2 hover_foreground "#fff2"
+                #         action [SetScreenVariable("color1", picker.color),
+                #             Function(picker.set_color, color2),
+                #             SetScreenVariable("current_color", 2)]
+                ## End of multiple swatch code
+
                 ## You can display other information on the color here, as desired
                 ## Some examples are provided. Note that these do not update in
                 ## tandem with the picker, but when the mouse is released. You
