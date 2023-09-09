@@ -1,5 +1,23 @@
 ################################################################################
-## SHADERS
+##
+## Color Picker for Ren'Py by Feniks (feniksdev.itch.io / feniksdev.com)
+##
+################################################################################
+## This file contains code for a colour picker in Ren'Py.
+## If you use this code in your projects, credit me as Feniks @ feniksdev.com
+##
+## If you'd like to see how to use this tool, check the other file,
+## color_picker_examples.rpy!
+## You can also see this tool in action in the image tint tool, also on itch:
+## https://feniksdev.itch.io/image-tint-tool
+##
+## Leave a comment on the tool page on itch.io or an issue on the GitHub
+## if you run into any issues.
+## https://feniksdev.itch.io/color-picker-for-renpy
+## https://github.com/shawna-p/renpy-color-picker
+################################################################################
+################################################################################
+## SHADERS & TRANSFORMS
 ################################################################################
 init python:
     ## A shader which creates a gradient for a colour picker.
@@ -16,14 +34,12 @@ init python:
         v_gradient_x_done = a_position.x / u_model_size.x;
         v_gradient_y_done = a_position.y / u_model_size.y;
     """, fragment_300="""
-        float left_gradient = v_gradient_x_done;
-        float top_gradient = v_gradient_y_done;
-        // Mix top left and the colour
-        gl_FragColor = mix(u_gradient_top_left, u_gradient_top_right, left_gradient);
+        // Mix the two top colours
+        vec4 top = mix(u_gradient_top_left, u_gradient_top_right, v_gradient_x_done);
         // Mix the two bottom colours
-        vec4 bottom = mix(u_gradient_bottom_left, u_gradient_bottom_right, left_gradient);
-        // Mix that with the top
-        gl_FragColor = mix(bottom, gl_FragColor, 1.0-top_gradient);
+        vec4 bottom = mix(u_gradient_bottom_left, u_gradient_bottom_right, v_gradient_x_done);
+        // Mix the top and bottom
+        gl_FragColor = mix(bottom, top, 1.0-v_gradient_y_done);
     """)
 
     ## A shader which creates a spectrum. Generally for colour pickers.
@@ -39,7 +55,8 @@ init python:
         v_gradient_x_done = a_position.x / u_model_size.x;
         v_gradient_y_done = a_position.y / u_model_size.y;
     """, fragment_functions="""
-    // HSL to RGB conversion adapted from https://stackoverflow.com/questions/2353211/hsl-to-rgb-color-conversion
+    // HSL to RGB conversion adapted from
+    // https://stackoverflow.com/questions/2353211/hsl-to-rgb-color-conversion
     float hue2rgb(float p, float q, float t){
         if(t < 0.0) t += 1.0;
         if(t > 1.0) t -= 1.0;
@@ -64,15 +81,19 @@ init python:
 
 ## A transform which creates a spectrum.
 ## If horizontal is True, the spectrum goes from left to right instead of
-## top to bottom. You can also adjust the lightness and saturation (between 0 and 1).
+## top to bottom. You can also adjust the lightness and saturation
+## (between 0 and 1).
 transform spectrum(horizontal=True, light=0.5, sat=1.0):
     shader "feniks.spectrum"
     u_lightness light
     u_saturation sat
     u_horizontal float(horizontal)
 
-## A transform which creates a square with a gradient from the top right
-transform color_picker(top_right, bottom_right="#000", bottom_left="#000", top_left="#fff"):
+## A transform which creates a square with a gradient. By default, only the
+## top right colour is required (to make a colour picker gradient) but four
+## corner colours may also be provided clockwise from the top-right.
+transform color_picker(top_right, bottom_right="#000", bottom_left="#000",
+        top_left="#fff"):
     shader "feniks.color_picker"
     u_gradient_top_right Color(top_right).rgba
     u_gradient_top_left Color(top_left).rgba
@@ -88,8 +109,7 @@ init python:
     class ColorPicker(renpy.Displayable):
         """
         A CDD which allows the player to pick a colour between four
-        quadrants, with the top left being pure white, the bottom left
-        and right being pure black, and the top right being a pure hue.
+        corner colours, with the typical setup used for a colour picker.
 
         Attributes
         ----------
@@ -97,6 +117,14 @@ init python:
             The width of the colour picker.
         ysize : int
             The height of the colour picker.
+        top_left : Color
+            The colour of the top-left corner.
+        top_right : Color
+            The colour of the top-right corner.
+        bottom_left : Color
+            The colour of the bottom-left corner.
+        bottom_right : Color
+            The colour of the bottom-right corner.
         color : Color
             The current colour the colour picker is focused over.
         selector_xpos : float
@@ -140,16 +168,13 @@ init python:
             self.bottom_right = None
 
             if start_color is None and four_corners is None:
+                ## Automatically start with red
                 self.set_color("#f00")
             elif four_corners is None:
                 self.set_color(start_color)
             else:
-                self.top_right, self.bottom_right, self.bottom_left, self.top_left = four_corners
-                ## Convert to Color objects
-                self.top_right = Color(self.top_right)
-                self.bottom_right = Color(self.bottom_right)
-                self.bottom_left = Color(self.bottom_left)
-                self.top_left = Color(self.top_left)
+                all_corners = [Color(c) if not isinstance(c, Color) else c for c in four_corners]
+                self.top_right, self.bottom_right, self.bottom_left, self.top_left = all_corners
                 self.set_color(self.top_right)
 
             self.picker = Transform("#fff", xysize=(self.xsize, self.ysize))
@@ -164,7 +189,11 @@ init python:
             color : Color
                 The new colour to set the colour picker to.
             """
-            self.color = Color(color)
+            if not isinstance(color, Color):
+                self.color = Color(color)
+            else:
+                self.color = color
+
             ## Check if this has four custom corners
             if self.top_left is None:
                 ## No; set to saturation/value
@@ -177,9 +206,6 @@ init python:
                 self.selector_xpos = 1.0
                 self.selector_ypos = 0.0
                 self.hue_rotation = 0.0
-
-        def visit(self):
-            return [Image("selector")]
 
         def render(self, width, height, st, at):
             """
@@ -213,7 +239,7 @@ init python:
             relative_x = x/float(self.xsize)
             relative_y = y/float(self.ysize)
 
-            in_range = ((0.0 <= relative_x <= 1.0) and (0.0 <= relative_y <= 1.0))
+            in_range = (0.0 <= relative_x <= 1.0) and (0.0 <= relative_y <= 1.0)
 
             if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1 and in_range:
                 self.dragging = True
@@ -268,180 +294,54 @@ init python:
         A brief DynamicDisplayable demonstration of how to display color
         information in real-time.
         """
-        return Fixed(Text(picker.color.hexcode), xsize=200, yfit=True), 0.01
+        return Text(picker.color.hexcode, style='picker_hexcode'), 0.01
 
 ################################################################################
 ## IMAGES
 ################################################################################
-## Used for both the spectrum thumb and the colour indicator. Can be changed.
-image selector_bg = Frame("selector.webp", 5, 5)
+init offset = -1
+init python:
+    def construct_selector(w=2, sz=5):
+        """
+        Constructs a white box surrounded by a black box, to use as a
+        selector for the colour picker.
+
+        Parameters
+        ----------
+        w : int
+            The width of the lines.
+        sz : int
+            The size of the inner box.
+        """
+        ## First, the sides of the box
+        box_leftright = [
+            Transform("#000", xysize=(w, sz+2*3*w), align=(0.5, 0.5)),
+            Transform("#fff", xysize=(w, sz+2*2*w), align=(0.5, 0.5)),
+            Transform("#000", xysize=(w, sz+2*1*w), align=(0.5, 0.5)),
+        ]
+        ## Then the top and bottom
+        box_topbottom = [
+            Transform("#000", xysize=(sz+2*2*w, w), align=(0.5, 0.5)),
+            Transform("#fff", xysize=(sz+2*1*w, w), align=(0.5, 0.5)),
+            Transform("#000", xysize=(sz, w), align=(0.5, 0.5)),
+        ]
+        final_vbox = box_topbottom + [Null(height=sz)] + box_topbottom[::-1]
+        final_hbox = (box_leftright + [Null(width=-w*2)]
+            + [VBox(*final_vbox, style='empty', spacing=0)]
+            + [Null(width=-w*2)] + box_leftright[::-1])
+        ## Now put it together
+        return HBox(*final_hbox, spacing=0, style='empty')
+
+## These can be changed; see color_picker_examples.rpy for more.
+## Feel free to remove the constructor function above if you don't use these.
+## Used for both the spectrum thumb and the colour indicator.
+image selector_img = construct_selector(2, 3)
+image selector_bg = Frame("selector_img", 7, 7)
 ## The image used for the indicator showing the current colour.
-image selector = Transform("selector_bg", xysize=(15, 15), anchor=(0.5, 0.5))
+image selector = Transform("selector_bg", xysize=(15, 15))
 
-################################################################################
-## SCREENS
-################################################################################
-## A sample screen to demonstrate the colour picker.
-## Simply write `call screen color_picker()` to test it.
-screen color_picker():
+style picker_hexcode:
+    color "#fff"
+    font "DejaVuSans.ttf"
 
-    ## The picker itself. Its size is 700x700 with the starting colour #8b0f55.
-    ## You may declare this outside of the screen to make it easier to access.
-    default picker = ColorPicker(700, 700, "#8b0f55")
-    ## The preview swatch. Needs to be provided the picker variable from above.
-    ## You can specify its size as well.
-    default picker_color = DynamicDisplayable(picker_color, picker=picker,
-        xsize=100, ysize=100)
-    ## The hexcode of the current colour. Demonstrates updating the picker
-    ## colour information in real-time.
-    default picker_hex = DynamicDisplayable(picker_hexcode, picker=picker)
 
-    ## This is an example of how you can swap between multiple colour swatches
-    default color1 = "#fff"
-    default color2 = "#fff"
-    default current_color = 1
-
-    add "#333"
-
-    vbox:
-        align (0.5, 0.5) spacing 25
-        hbox:
-            spacing 25
-            ## A vertical bar which lets you change the hue of the picker.
-            vbar value FieldValue(picker, "hue_rotation", 1.0):
-                xysize (50, 700)
-                base_bar At(Transform("#000", xysize=(50, 700)), spectrum(horizontal=False))
-                thumb Transform("selector_bg", xysize=(50, 20))
-                thumb_offset 10
-
-            ## The picker itself
-            add picker
-            vbox:
-                xsize 200 spacing 10
-                ## The swatch
-                ## If you only need one swatch, use this:
-                add picker_color
-                ## Otherwise, the following code lets you switch between
-                ## two different swatches to choose more than one colour:
-                # if current_color == 1:
-                #     button:
-                #         padding (4, 4) background "#fff"
-                #         add picker_color
-                # else:
-                #     imagebutton:
-                #         xysize (100, 100) padding (4, 4)
-                #         idle color1 hover_foreground "#fff2"
-                #         action [SetScreenVariable("color2", picker.color),
-                #             Function(picker.set_color, color1),
-                #             SetScreenVariable("current_color", 1)]
-                # if current_color == 2:
-                #     button:
-                #         padding (4, 4) background "#fff"
-                #         add picker_color
-                # else:
-                #     imagebutton:
-                #         xysize (100, 100) padding (4, 4)
-                #         idle color2 hover_foreground "#fff2"
-                #         action [SetScreenVariable("color1", picker.color),
-                #             Function(picker.set_color, color2),
-                #             SetScreenVariable("current_color", 2)]
-                ## End of multiple swatch code
-
-                ## You can display other information on the color here, as desired
-                ## Some examples are provided. Note that these do not update in
-                ## tandem with the picker, but when the mouse is released. You
-                ## will need to use a DynamicDisplayable for real-time updates.
-                ## The hex code is provided as an example.
-                add picker_hex ## The DynamicDisplayable from earlier
-                ## These update when the mouse button is released
-                ## since they aren't a dynamic displayable
-                text "R: [picker.color.rgb[0]:.2f]"
-                text "G: [picker.color.rgb[1]:.2f]"
-                text "B: [picker.color.rgb[2]:.2f]"
-
-        ## A horizontal bar that lets you change the hue of the picker
-        bar value FieldValue(picker, "hue_rotation", 1.0):
-            xysize (700, 50) xpos 25+80
-            base_bar At(Transform("#000", xysize=(700, 50)), spectrum())
-            thumb Transform("selector_bg", xysize=(20, 50))
-            thumb_offset 10
-
-    ## In this case, the screen returns the picker's colour. The colour itself
-    ## is always stored in the picker's `color` attribute.
-    textbutton "Return" action Return(picker.color) align (1.0, 1.0)
-
-################################################################################
-## A sample screen to demonstrate the four corner colour picker.
-## Simply write `call screen four_corner_picker()` to test it.
-screen four_corner_picker():
-
-    ## The picker itself. Its size is 700x700, and it's given a colour for
-    ## all four corners (top right, bottom right, bottom left, top left)
-    ## You may declare this outside of the screen to make it easier to access.
-    default picker = ColorPicker(700, 700, four_corners=("#37dddd", "#010038", "#270129", "#daf0ea"))
-    ## The preview swatch. Needs to be provided the picker variable from above.
-    ## You can specify its size as well.
-    default picker_color = DynamicDisplayable(picker_color, picker=picker,
-        xsize=100, ysize=100)
-    ## The hexcode of the current colour. Demonstrates updating the picker
-    ## colour information in real-time.
-    default picker_hex = DynamicDisplayable(picker_hexcode, picker=picker)
-
-    add "#333"
-
-    vbox:
-        align (0.5, 0.5) spacing 25
-        hbox:
-            spacing 25
-
-            ## The picker itself
-            add picker
-            vbox:
-                xsize 200 spacing 10
-                ## The swatch
-                ## If you only need one swatch, use this:
-                add picker_color
-
-                ## You can display other information on the color here, as desired
-                ## Some examples are provided. Note that these do not update in
-                ## tandem with the picker, but when the mouse is released. You
-                ## will need to use a DynamicDisplayable for real-time updates.
-                ## The hex code is provided as an example.
-                add picker_hex ## The DynamicDisplayable from earlier
-                ## These update when the mouse button is released
-                ## since they aren't a dynamic displayable
-                text "R: [picker.color.rgb[0]:.2f]"
-                text "G: [picker.color.rgb[1]:.2f]"
-                text "B: [picker.color.rgb[2]:.2f]"
-
-        ## A horizontal bar that lets you change the hue of the picker
-        ## For a four-corner picker, you may not need this.
-        bar value FieldValue(picker, "hue_rotation", 1.0):
-            xysize (700, 50)
-            base_bar "#fff"
-            thumb Transform("selector_bg", xysize=(20, 50))
-            thumb_offset 10
-
-    ## In this case, the screen returns the picker's colour. The colour itself
-    ## is always stored in the picker's `color` attribute.
-    textbutton "Return" action Return(picker.color) align (1.0, 1.0)
-
-################################################################################
-## TESTING
-################################################################################
-default chosen_color = "#8b0f55"
-label how_to_use_color_picker():
-    "Soon, you will be shown a colour picker."
-    call screen color_picker()
-    ## The colour the picker returns is a Color object. It has a hexcode
-    ## field to easily get the hexadecimal colour code.
-    $ chosen_color = _return.hexcode
-    ## This is used to put the returned colour into a colour text tag
-    $ color_tag = "{color=%s}" % chosen_color
-    "[color_tag]You chose the colour [chosen_color].{/color}"
-    "Next, you will be shown a four-corner colour picker."
-    call screen four_corner_picker()
-    $ chosen_color = _return.hexcode
-    $ color_tag = "{color=%s}" % chosen_color
-    "[color_tag]You chose the colour [chosen_color].{/color}"
-    return
