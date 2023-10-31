@@ -109,7 +109,15 @@ style cpicker_image_button:
 ################################################################################
 ## EXAMPLE 2
 ## The picker itself. This one is declared outside of the screen.
-default picker2 = ColorPicker(700, 700, "#f93c3e")
+default picker2 = ColorPicker(700, 700, "#f93c3e",
+    ## This sets up two saved colours for the picker. These can be accessed
+    ## later to allow the picker to swap between two different colours.
+    ## You could add more keys and default colours, if desired. The keys don't
+    ## have to be numbers, either; they could be names like "background".
+    saved_colors={0 : "#f93c3e", 1 : "#ff8335"},
+    ## This sets up the first dictionary key as the "current" colour at
+    ## the start. It will be updated automatically later.
+    last_saved_color=0)
 ## The preview swatch. Needs to be provided the picker variable from above.
 ## You can specify its size as well.
 default picker_swatch_v2 = DynamicDisplayable(picker_color, picker=picker2,
@@ -118,27 +126,10 @@ default picker_swatch_v2 = DynamicDisplayable(picker_color, picker=picker2,
 ## colour information in real-time.
 default picker_hex_v2 = DynamicDisplayable(picker_hexcode, picker=picker2)
 
-default color1 = Color("#fff")
-default color2 = Color("#fff")
-
-init python:
-    def finalize_colors(current, picker):
-        """
-        A helper function which ensures that the last-changed colour picker
-        colour is also saved. This is a function rather than a SetVariable
-        action because Ren'Py does not refresh the SetVariable value while
-        the colour picker is changing colours, thus it would use an out-of-date
-        value.
-        """
-        if current == 1:
-            store.color1 = picker.color
-        else:
-            store.color2 = picker.color
-
 screen color_picker_v2():
 
     ## This is an example of how you can swap between multiple colour swatches
-    default current_color = 1
+    default current_color = 0
 
     style_prefix 'cpicker'
 
@@ -158,28 +149,24 @@ screen color_picker_v2():
             xsize 200 spacing 10 align (0.0, 0.0)
             ## The following code lets you switch between
             ## two different swatches to choose more than one colour:
-            if current_color == 1:
-                button:
-                    ## An insensitive button which just shows the currently
-                    ## selected colour.
-                    add picker_swatch_v2
-            else:
-                imagebutton:
-                    idle color1
-                    ## Switch the picker to track the second colour, using
-                    ## the `set_color` method.
-                    action [SetVariable("color2", picker2.color),
-                        Function(picker2.set_color, color1),
-                        SetScreenVariable("current_color", 1)]
-            if current_color == 2:
-                button:
-                    add picker_swatch_v2
-            else:
-                imagebutton:
-                    idle color2
-                    action [SetVariable("color1", picker2.color),
-                        Function(picker2.set_color, color2),
-                        SetScreenVariable("current_color", 2)]
+            for color_key in [0, 1]:
+                if current_color == color_key:
+                    button:
+                        ## An insensitive button which just shows the currently
+                        ## selected colour.
+                        add picker_swatch_v2
+                else:
+                    imagebutton:
+                        ## This fetches the colour from the picker's saved
+                        ## dictionary according to the passed-in key.
+                        idle picker2.get_color(color_key)
+                        ## This does three things: first, it saves the current
+                        ## colour to the picker's dictionary. Next it updates
+                        ## current_colour to the new key. Finally, it swaps
+                        ## the picker's colour to the colour at that key.
+                        action [Function(picker2.save_color, current_color),
+                            SetScreenVariable("current_color", color_key),
+                            Function(picker2.swap_to_saved_color, color_key)]
 
             ## The hex code
             add picker_hex_v2 ## The DynamicDisplayable from earlier
@@ -188,10 +175,7 @@ screen color_picker_v2():
             text "G: [picker2.color.rgb[1]:.2f]"
             text "B: [picker2.color.rgb[2]:.2f]"
 
-    ## Ensure that the last-changed colour picker colour is also saved, and
-    ## then just Return because this screen uses global variables.
-    textbutton "Return" align (1.0, 1.0):
-        action [Function(finalize_colors, current_color, picker2), Return()]
+    textbutton "Return" align (1.0, 1.0) action Return()
 
 ################################################################################
 ## EXAMPLE 3
@@ -260,9 +244,13 @@ label how_to_use_color_picker():
     ## EXAMPLE 2
     "The next picker will let you select two different colours."
     call screen color_picker_v2()
-    $ color1_tag = "{color=%s}" % color1.hexcode
-    $ color2_tag = "{color=%s}" % color2.hexcode
-    "[color1_tag]The first colour was [color1.hexcode],{/color}[color2_tag] and the second was [color2.hexcode].{/color}"
+    ## The get_color method lets you pass in the dictionary key and retrieve
+    ## the colour saved in the picker at that key.
+    $ chosen_color1 = picker2.get_color(0).hexcode
+    $ color1_tag = "{color=%s}" % chosen_color1
+    $ chosen_color2 = picker2.get_color(1).hexcode
+    $ color2_tag = "{color=%s}" % chosen_color2
+    "[color1_tag]The first colour was [chosen_color1],{/color}[color2_tag] and the second was [chosen_color2].{/color}"
 
     ## EXAMPLE 3
     "Next, you will be shown a four-corner colour picker."
