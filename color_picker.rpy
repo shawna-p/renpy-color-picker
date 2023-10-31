@@ -137,10 +137,15 @@ init python:
             The amount the current hue is rotated by.
         dragging : bool
             True if the indicator is currently being dragged around.
+        saved_colors : dict
+            A dictionary of key - Color pairs corresponding to colours the
+            picker has selected in the past.
+        last_saved_color : any
+            The dictionary key of the last colour saved.
         """
         RED = Color("#f00")
         def __init__(self, xsize, ysize, start_color=None, four_corners=None,
-                **kwargs):
+                saved_colors=None, last_saved_color=None, **kwargs):
             """
             Create a ColorPicker object.
 
@@ -157,6 +162,11 @@ init python:
                 colour picker. The order is top right, bottom right, bottom
                 left, top left. If this is not None, it will override the
                 start_color parameter.
+            saved_colors : dict
+                A dictionary of key - Color pairs corresponding to colours
+                the picker has selected in the past.
+            last_saved_color : any
+                The dictionary key of the last colour saved.
             """
             super(ColorPicker, self).__init__(**kwargs)
             self.xsize = xsize
@@ -166,6 +176,9 @@ init python:
             self.top_right = None
             self.bottom_left = None
             self.bottom_right = None
+
+            self.last_saved_color = last_saved_color
+            self.saved_colors = saved_colors or dict()
 
             if start_color is None and four_corners is None:
                 ## Automatically start with red
@@ -180,6 +193,8 @@ init python:
             self.picker = Transform("#fff", xysize=(self.xsize, self.ysize))
             self.dragging = False
 
+            self.save_color(self.last_saved_color)
+
         def set_color(self, color):
             """
             Set the current colour of the colour picker.
@@ -193,19 +208,71 @@ init python:
                 self.color = Color(color)
             else:
                 self.color = color
+            self.dragging = False
 
             ## Check if this has four custom corners
             if self.top_left is None:
                 ## No; set to saturation/value
                 self.selector_xpos = self.color.hsv[1]
                 self.selector_ypos = 1.0 - self.color.hsv[2]
-                self.hue_rotation = self.color.hsv[0]
+                self._hue_rotation = self.color.hsv[0]
             else:
                 ## There isn't a good way to guess the position of a colour
                 ## with custom corners, so just set it to the top right
                 self.selector_xpos = 1.0
                 self.selector_ypos = 0.0
-                self.hue_rotation = 0.0
+                self._hue_rotation = 0.0
+
+        @property
+        def hue_rotation(self):
+            """
+            The hue rotation of the colour picker.
+            """
+            return self._hue_rotation
+
+        @hue_rotation.setter
+        def hue_rotation(self, value):
+            """
+            Set the hue rotation of the colour picker.
+            """
+            self._hue_rotation = value % 1.0
+            self.update_hue()
+
+        def set_saved_color(self, key, new_color):
+            """
+            Set the colour saved with key as the key to new_color.
+
+            Parameters
+            ----------
+            key : any
+                The key of the colour to change. Must be a valid dictionary key.
+            new_color : Color
+                The new colour to set the saved colour to.
+            """
+            if not isinstance(new_color, Color):
+                self.saved_colors[key] = Color(new_color)
+            else:
+                self.saved_colors[key] = new_color
+
+        def save_color(self, key):
+            """
+            Save the current colour to the saved dictionary with key as the key.
+            """
+            self.saved_colors[key] = self.color
+
+        def get_color(self, key):
+            """
+            Retrieve the colour saved in the dictionary with key as the key.
+            """
+            return self.saved_colors.get(key, Color("#000"))
+
+        def swap_to_saved_color(self, key):
+            """
+            Swap to the saved colour with key as the key.
+            """
+            self.set_color(self.saved_colors.get(key, Color("#000")))
+            self.last_saved_color = key
+            renpy.redraw(self, 0)
 
         def render(self, width, height, st, at):
             """
@@ -231,8 +298,30 @@ init python:
             # Render it to the screen
             ren = renpy.render(final, self.xsize, self.ysize, st, at)
             r.blit(ren, (0, 0))
-            renpy.redraw(self, 0)
             return r
+
+        def update_hue(self):
+            """
+            Update the colour based on the hue in the top-right corner
+            (or in all 4 corners).
+            """
+            # Figure out the colour under the selector
+            if self.top_left is None:
+                trc = self.RED.rotate_hue(self.hue_rotation)
+                tlc = Color("#fff")
+                brc = Color("#000")
+                blc = Color("#000")
+            else:
+                tlc = self.top_left.rotate_hue(self.hue_rotation)
+                trc = self.top_right.rotate_hue(self.hue_rotation)
+                brc = self.bottom_right.rotate_hue(self.hue_rotation)
+                blc = self.bottom_left.rotate_hue(self.hue_rotation)
+
+            self.color = tlc.interpolate(trc, self.selector_xpos)
+            bottom = blc.interpolate(brc, self.selector_xpos)
+            self.color = self.color.interpolate(bottom, self.selector_ypos)
+            self.save_color(self.last_saved_color)
+            renpy.redraw(self, 0)
 
         def event(self, ev, x, y, st):
             """Allow the user to drag their mouse to select a colour."""
@@ -252,26 +341,15 @@ init python:
                 self.dragging = False
                 ## Update the screen
                 renpy.restart_interaction()
+                return
+            else:
+                return
 
             # Limit x/ypos
             self.selector_xpos = min(max(self.selector_xpos, 0.0), 1.0)
             self.selector_ypos = min(max(self.selector_ypos, 0.0), 1.0)
 
-            # Figure out the colour under the selector
-            if self.top_left is None:
-                trc = self.RED.rotate_hue(self.hue_rotation)
-                tlc = Color("#fff")
-                brc = Color("#000")
-                blc = Color("#000")
-            else:
-                tlc = self.top_left.rotate_hue(self.hue_rotation)
-                trc = self.top_right.rotate_hue(self.hue_rotation)
-                brc = self.bottom_right.rotate_hue(self.hue_rotation)
-                blc = self.bottom_left.rotate_hue(self.hue_rotation)
-
-            self.color = tlc.interpolate(trc, self.selector_xpos)
-            bottom = blc.interpolate(brc, self.selector_xpos)
-            self.color = self.color.interpolate(bottom, self.selector_ypos)
+            self.update_hue()
             return None
 
     def picker_color(st, at, picker, xsize=100, ysize=100):
@@ -343,5 +421,3 @@ image selector = Transform("selector_bg", xysize=(15, 15))
 style picker_hexcode:
     color "#fff"
     font "DejaVuSans.ttf"
-
-
