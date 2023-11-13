@@ -142,10 +142,14 @@ init python:
             picker has selected in the past.
         last_saved_color : any
             The dictionary key of the last colour saved.
+        mouseup_callback : callable
+            An optional callback or list of callbacks which will be called when
+            the player lifts their mouse after selecting a colour.
         """
         RED = Color("#f00")
         def __init__(self, xsize, ysize, start_color=None, four_corners=None,
-                saved_colors=None, last_saved_color=None, **kwargs):
+                saved_colors=None, last_saved_color=None, mouseup_callback=None,
+                **kwargs):
             """
             Create a ColorPicker object.
 
@@ -167,6 +171,9 @@ init python:
                 the picker has selected in the past.
             last_saved_color : any
                 The dictionary key of the last colour saved.
+            mouseup_callback : callable
+                An optional callback or list of callbacks which will be called
+                when the player lifts their mouse after selecting a colour.
             """
             super(ColorPicker, self).__init__(**kwargs)
             self.xsize = xsize
@@ -179,6 +186,7 @@ init python:
 
             self.last_saved_color = last_saved_color
             self.saved_colors = saved_colors or dict()
+            self.mouseup_callback = mouseup_callback
 
             if start_color is None and four_corners is None:
                 ## Automatically start with red
@@ -213,8 +221,8 @@ init python:
             ## Check if this has four custom corners
             if self.top_left is None:
                 ## No; set to saturation/value
-                self.selector_xpos = self.color.hsv[1]
-                self.selector_ypos = 1.0 - self.color.hsv[2]
+                self.selector_xpos = round(self.color.hsv[1]*255.0)/255.0
+                self.selector_ypos = 1.0 - round(self.color.hsv[2]*255.0)/255.0
                 self._hue_rotation = self.color.hsv[0]
             else:
                 ## There isn't a good way to guess the position of a colour
@@ -235,7 +243,10 @@ init python:
             """
             Set the hue rotation of the colour picker.
             """
-            self._hue_rotation = value % 1.0
+            value = value % 1.0
+            if round(self._hue_rotation*255.0) == round(value*255):
+                return
+            self._hue_rotation = value
             self.update_hue()
 
         def set_saved_color(self, key, new_color):
@@ -325,22 +336,24 @@ init python:
 
         def event(self, ev, x, y, st):
             """Allow the user to drag their mouse to select a colour."""
-            relative_x = x/float(self.xsize)
-            relative_y = y/float(self.ysize)
+            relative_x = round(x/float(self.xsize)*255.0)/255.0
+            relative_y = round(y/float(self.ysize)*255.0)/255.0
 
             in_range = (0.0 <= relative_x <= 1.0) and (0.0 <= relative_y <= 1.0)
 
-            if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1 and in_range:
+            if renpy.map_event(ev, "mousedown_1") and in_range:
                 self.dragging = True
                 self.selector_xpos = relative_x
                 self.selector_ypos = relative_y
             elif ev.type == pygame.MOUSEMOTION and self.dragging:
                 self.selector_xpos = relative_x
                 self.selector_ypos = relative_y
-            elif ev.type == pygame.MOUSEBUTTONUP and ev.button == 1:
+            elif renpy.map_event(ev, "mouseup_1") and self.dragging:
                 self.dragging = False
                 ## Update the screen
                 renpy.restart_interaction()
+                if self.mouseup_callback is not None:
+                    renpy.run(self.mouseup_callback, self)
                 return
             else:
                 return
@@ -348,7 +361,6 @@ init python:
             # Limit x/ypos
             self.selector_xpos = min(max(self.selector_xpos, 0.0), 1.0)
             self.selector_ypos = min(max(self.selector_ypos, 0.0), 1.0)
-
             self.update_hue()
             return None
 
