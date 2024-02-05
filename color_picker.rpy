@@ -243,7 +243,8 @@ init python:
             """
             Set the hue rotation of the colour picker.
             """
-            value = value % 1.0
+            if value > 1.0:
+                value = value % 1.0
             if round(self._hue_rotation*255.0) == round(value*255):
                 return
             self._hue_rotation = value
