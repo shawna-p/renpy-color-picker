@@ -30,10 +30,10 @@
 ## Simply write `call screen color_picker()` to test it.
 screen color_picker():
 
-    ## The picker itself. Its size is 700x700 with the starting colour #ff8335.
+    ## The picker itself. Its size is 600x600 with the starting colour #ff8335.
     ## You may declare this outside of the screen to make it easier to access;
     ## see color_picker_v2 for an example of this.
-    default picker = ColorPicker(700, 700, "#ff8335")
+    default picker = ColorPicker(600, 600, "#ff8335")
     ## The preview swatch. Needs to be provided the picker variable from above.
     ## You can specify its size as well.
     default picker_swatch = DynamicDisplayable(picker_color, picker=picker,
@@ -85,13 +85,13 @@ style cpicker_hbox:
     align (0.5, 0.5)
     spacing 25
 style cpicker_vbar:
-    xysize (50, 700)
-    base_bar At(Transform("#000", xysize=(50, 700)), spectrum(horizontal=False))
+    xysize (50, 600)
+    base_bar At(Transform("#000", xysize=(50, 600)), spectrum(horizontal=False))
     thumb Transform("selector_bg", xysize=(50, 20))
     thumb_offset 10
 style cpicker_bar:
-    xysize (700, 50)
-    base_bar At(Transform("#000", xysize=(700, 50)), spectrum())
+    xysize (600, 50)
+    base_bar At(Transform("#000", xysize=(600, 50)), spectrum())
     thumb Transform("selector_bg", xysize=(20, 50))
     thumb_offset 10
 style cpicker_text:
@@ -109,7 +109,7 @@ style cpicker_image_button:
 ################################################################################
 ## EXAMPLE 2
 ## The picker itself. This one is declared outside of the screen.
-default picker2 = ColorPicker(700, 700, "#f93c3e",
+default picker2 = ColorPicker(600, 600, "#f93c3e",
     ## This sets up two saved colours for the picker. These can be accessed
     ## later to allow the picker to swap between two different colours.
     ## You could add more keys and default colours, if desired. The keys don't
@@ -183,10 +183,10 @@ screen color_picker_v2():
 ## Simply write `call screen four_corner_picker()` to test it.
 screen four_corner_picker():
 
-    ## The picker itself. Its size is 700x700, and it's given a colour for
+    ## The picker itself. Its size is 600x600, and it's given a colour for
     ## all four corners (top right, bottom right, bottom left, top left)
     ## You may declare this outside of the screen to make it easier to access.
-    default picker = ColorPicker(700, 700,
+    default picker = ColorPicker(600, 600,
         four_corners=("#ff8335", "#f93c3e", "#292835", "#f7f7ed"))
     ## The preview swatch. Needs to be provided the picker variable from above.
     ## You can specify its size as well.
